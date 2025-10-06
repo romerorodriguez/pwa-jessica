@@ -1,0 +1,24 @@
+{
+  "name": "TaskFlow - Organizador de Tareas",
+  "short_name": "TaskFlow",
+  "description": "Organiza y gestiona tus tareas de forma eficiente",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#10b981",
+  "background_color": "#f0fdf4",
+  "icons": [
+    {
+      "src": "/icon-task.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "organization"]
+}

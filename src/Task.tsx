@@ -16,15 +16,11 @@ function Task() {
   useEffect(() => {
     const savedTasks = localStorage.getItem('taskflow-tasks');
     if (savedTasks) {
-      try {
-        const parsedTasks = JSON.parse(savedTasks).map((task: any) => ({
-          ...task,
-          createdAt: new Date(task.createdAt)
-        }));
-        setTasks(parsedTasks);
-      } catch (error) {
-        console.error('Error loading tasks:', error);
-      }
+      const parsedTasks = JSON.parse(savedTasks).map((task: any) => ({
+        ...task,
+        createdAt: new Date(task.createdAt)
+      }));
+      setTasks(parsedTasks);
     }
   }, []);
 
@@ -70,7 +66,7 @@ function Task() {
   return (
     <div className="task-container">
       <header className="task-header">
-        <h1>TaskFlow - Organizador de Tareas</h1>
+        <h1>Mis Tareas</h1>
         <p>Organiza tu día de manera eficiente</p>
       </header>
 
@@ -133,7 +129,7 @@ function Task() {
       </div>
 
       <footer className="task-footer">
-        <small>© 2025 TaskFlow - Organiza tu vida</small>
+        <small>TaskFlow - Organiza tu vida</small>
       </footer>
     </div>
   );

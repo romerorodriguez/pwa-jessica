@@ -1,16 +1,31 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Task from './Task';
-import Home from './Home';
+import './App.css';
+import { useNavigate } from 'react-router-dom';
 
-function MainApp() {
+function App() {
+    const navigate = useNavigate();
+    const goToTask = () => {
+        navigate('/task');
+    }
+  
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home/>} />
-        <Route path="/task" element={<Task />} />
-      </Routes>
-    </Router>
-  );
+    <div className="app-shell">
+      <header>
+        <h1>TaskFlow - JRR</h1>
+      </header>
+      <main>
+        <p>Tu organizador de tareas offline</p>
+      </main>
+      <footer>
+        <small>© 2025 TaskFlow</small>
+      </footer>
+      <button onClick={goToTask}>
+        Comenzar
+      </button>
+      <button>
+        Descargar App
+      </button>
+    </div>
+  )
 }
 
-export default MainApp;
+export default App;

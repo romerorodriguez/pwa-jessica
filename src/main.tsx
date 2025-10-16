@@ -11,6 +11,14 @@ createRoot(document.getElementById('root')!).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js');
+    navigator.serviceWorker.register('/public/service-worker.js', {
+      scope: '/'
+    })
+    .then((registration) => {
+      console.log('SW registrado:', registration);
+    })
+    .catch((error) => {
+      console.log('Error SW:', error);
+    });
   });
 }

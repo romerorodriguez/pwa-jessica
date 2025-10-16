@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Task from './Task';
-import Home from './Home';
+import Task from './pages/Task';
+import Home from './pages/Home';
 
 function MainApp() {
   return (

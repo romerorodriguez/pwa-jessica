@@ -1,66 +1,121 @@
-import { useState, useEffect } from 'react';
-import './Task.css';
+import { useState, useEffect } from "react";
+import { openDB } from "idb";
+import "./Task.css";
+
+const DB_NAME = "taskflow-db";
+const STORE_NAME = "tasks";
 
 interface TaskItem {
-  id: string;
+  id: number;
   text: string;
   completed: boolean;
   createdAt: Date;
 }
 
+async function initDB() {
+  return openDB(DB_NAME, 1, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+      }
+    },
+  });
+}
+
+async function getAllTasks() {
+  const db = await initDB();
+  const tasks = await db.getAll(STORE_NAME);
+  return tasks.map((t: any) => ({ ...t, createdAt: new Date(t.createdAt) }));
+}
+
+async function addTaskDB(task: Omit<TaskItem, "id">) {
+  const db = await initDB();
+  await db.add(STORE_NAME, task);
+}
+
+async function deleteTaskDB(id: number) {
+  const db = await initDB();
+  await db.delete(STORE_NAME, id);
+}
+
+async function updateTaskDB(task: TaskItem) {
+  const db = await initDB();
+  await db.put(STORE_NAME, task);
+}
+
+async function clearCompletedDB() {
+  const db = await initDB();
+  const all = await db.getAll(STORE_NAME);
+  const completed = all.filter((t: any) => t.completed);
+  for (const t of completed) {
+    await db.delete(STORE_NAME, t.id);
+  }
+}
+
+// --- Componente principal ---
 function Task() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [newTask, setNewTask] = useState('');
+  const [newTask, setNewTask] = useState("");
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Cargar tareas del localStorage al iniciar
+  // Detectar cambios de conexión
   useEffect(() => {
-    const savedTasks = localStorage.getItem('taskflow-tasks');
-    if (savedTasks) {
-      const parsedTasks = JSON.parse(savedTasks).map((task: any) => ({
-        ...task,
-        createdAt: new Date(task.createdAt)
-      }));
-      setTasks(parsedTasks);
-    }
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
   }, []);
 
-  // Guardar tareas en localStorage cuando cambien
+  // Cargar tareas desde IndexedDB al iniciar
   useEffect(() => {
-    localStorage.setItem('taskflow-tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    const loadTasks = async () => {
+      const stored = await getAllTasks();
+      setTasks(stored);
+    };
+    loadTasks();
+  }, []);
 
-  const addTask = () => {
-    if (newTask.trim() === '') return;
-    
-    const task: TaskItem = {
-      id: Date.now().toString(),
+  const addTask = async () => {
+    if (newTask.trim() === "") return;
+
+    const task = {
       text: newTask.trim(),
       completed: false,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
-    
-    setTasks([...tasks, task]);
-    setNewTask('');
+
+    await addTaskDB(task);
+    const updated = await getAllTasks();
+    setTasks(updated);
+    setNewTask("");
   };
 
-  const deleteTask = (id: string) => {
-    setTasks(tasks.filter(task => task.id !== id));
+  const deleteTask = async (id: number) => {
+    await deleteTaskDB(id);
+    const updated = await getAllTasks();
+    setTasks(updated);
   };
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
+  const toggleTask = async (id: number) => {
+    const updatedTasks = tasks.map((t) =>
+      t.id === id ? { ...t, completed: !t.completed } : t
+    );
+    setTasks(updatedTasks);
+    const toggled = updatedTasks.find((t) => t.id === id);
+    if (toggled) await updateTaskDB(toggled);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      addTask();
-    }
+    if (e.key === "Enter") addTask();
   };
 
-  const clearCompleted = () => {
-    setTasks(tasks.filter(task => !task.completed));
+  const clearCompleted = async () => {
+    await clearCompletedDB();
+    const updated = await getAllTasks();
+    setTasks(updated);
   };
 
   return (
@@ -68,6 +123,9 @@ function Task() {
       <header className="task-header">
         <h1>Mis Tareas</h1>
         <p>Organiza tu día de manera eficiente</p>
+        <p className={`status ${isOnline ? "online" : "offline"}`}>
+          {isOnline ? "🟢 Conectado" : "🔴 Sin conexión"}
+        </p>
       </header>
 
       <div className="task-input-section">
@@ -87,8 +145,8 @@ function Task() {
       </div>
 
       <div className="tasks-stats">
-        <span>{tasks.filter(t => !t.completed).length} tareas pendientes</span>
-        {tasks.some(t => t.completed) && (
+        <span>{tasks.filter((t) => !t.completed).length} tareas pendientes</span>
+        {tasks.some((t) => t.completed) && (
           <button onClick={clearCompleted} className="clear-btn">
             Limpiar completadas
           </button>
@@ -103,7 +161,10 @@ function Task() {
           </div>
         ) : (
           tasks.map((task) => (
-            <div key={task.id} className={`task-item ${task.completed ? 'completed' : ''}`}>
+            <div
+              key={task.id}
+              className={`task-item ${task.completed ? "completed" : ""}`}
+            >
               <div className="task-content">
                 <input
                   type="checkbox"

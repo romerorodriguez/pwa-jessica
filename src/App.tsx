@@ -1,8 +1,9 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Task from './pages/Task';
 import Home from './pages/Home';
+import './App.css';
 
-function MainApp() {
+function App() {
   return (
     <Router>
       <Routes>
@@ -13,4 +14,4 @@ function MainApp() {
   );
 }
 
-export default MainApp;
+export default App;

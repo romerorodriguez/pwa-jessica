@@ -154,6 +154,35 @@ function Task() {
     setSyncStatus('❌ Error guardando tarea');
   }
 };
+    if (newTask.trim() === "") return;
+    
+    try {
+      const task = {
+        text: newTask.trim(),
+        completed: false,
+        createdAt: new Date(),
+      };
+      
+      await addTask(task);
+      
+      // Registrar background sync si está offline
+      if (!navigator.onLine) {
+        await registerBackgroundSync();
+        setSyncStatus('⏳ Tarea guardada offline - Se sincronizará después');
+      } else {
+        setSyncStatus('✅ Tarea guardada y sincronizada');
+      }
+
+      const updated = await getAllTasks();
+      setTasks(updated);
+      setNewTask("");
+      setTimeout(() => setSyncStatus(''), 3000);
+      
+    } catch (error) {
+      console.error('Error agregando tarea:', error);
+      setSyncStatus('❌ Error guardando tarea');
+    }
+  };
 
   const deleteTask = async (id: number) => {
     try {
@@ -235,6 +264,20 @@ function Task() {
     </button>
   </div>
 </div>
+        <div className="input-group">
+          <input
+            type="text"
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Escribe una nueva tarea..."
+            className="task-input"
+          />
+          <button onClick={handleAddTask} className="add-btn">
+            Agregar
+          </button>
+        </div>
+      </div>
 
       <div className="tasks-stats">
         <span>{tasks.filter((t) => !t.completed).length} tareas pendientes</span>
@@ -285,6 +328,50 @@ function Task() {
     ))
   )}
 </div>
+
+      <div className="notifications-section">
+        <h3>🔔 Notificaciones Push</h3>
+        
+        {!notificationStatus.supported ? (
+          <div className="notification-status unsupported">
+            <p>❌ Tu navegador no soporta notificaciones push</p>
+          </div>
+        ) : notificationStatus.permission === 'denied' ? (
+          <div className="notification-status denied">
+            <p>🔕 Permiso de notificaciones denegado</p>
+            <small>Para activarlas, ve a configuración de tu navegador</small>
+          </div>
+        ) : !notificationStatus.subscribed ? (
+          <div className="notification-status available">
+            <p>💡 Activa las notificaciones push</p>
+            <small>Recibe alertas cuando se sincronicen tus tareas</small>
+            <button 
+              onClick={handleEnableNotifications}
+              className="enable-notifications-btn"
+            >
+              Activar Notificaciones
+            </button>
+          </div>
+        ) : (
+          <div className="notification-status active">
+            <p>✅ Notificaciones push activadas</p>
+            <div className="notification-actions">
+              <button 
+                onClick={handleTestNotification}
+                className="test-notification-btn"
+              >
+                Probar Notificación
+              </button>
+              <button 
+                onClick={handleDisableNotifications}
+                className="disable-notifications-btn"
+              >
+                Desactivar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="notifications-section">
         <h3>🔔 Notificaciones Push</h3>

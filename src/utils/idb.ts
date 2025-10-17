@@ -65,12 +65,18 @@ export const addTask = async (task: { title: string; description: string; comple
     description: task.description,
     completed: task.completed || false,
     createdAt: (task.createdAt || new Date()).toISOString(),
+export const addTask = async (task: { text: string; completed: boolean; createdAt: Date }) => {
+  const db = await initDB();
+  
+  const taskToSave = {
+    ...task,
+    createdAt: task.createdAt.toISOString(),
     synced: false
   };
   
   const result = await db.add(STORE_NAME, taskToSave);
   console.log('✅ Tarea guardada con ID:', result);
-  
+  // También agregar a pendientes de sync si está offline
   if (!navigator.onLine) {
     console.log('📥 Guardando en sync pendiente (offline)');
     await addToPendingSync({ ...taskToSave, localId: result });
@@ -88,6 +94,7 @@ export const getAllTasks = async () => {
     id: t.id,
     title: t.title || t.text || '', // Mantener compatibilidad
     description: t.description || '',
+    text: t.text || t.title || '',
     completed: t.completed || false,
     createdAt: new Date(t.createdAt)
   }));

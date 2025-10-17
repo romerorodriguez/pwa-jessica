@@ -21,6 +21,13 @@ export const initDB = async () => {
     console.error('Error en IndexedDB:', error);
     throw error;
   }
+  return openDB(DB_NAME, 1, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+      }
+    },
+  });
 };
 
 export const addTask = async (task: { title: string; description: string }) => {

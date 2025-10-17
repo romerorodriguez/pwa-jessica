@@ -83,6 +83,12 @@ function Task() {
   };
   loadTasks();
 }, []);
+    const loadTasks = async () => {
+      const stored = await getAllTasks();
+      setTasks(stored);
+    };
+    loadTasks();
+  }, []);
 
   const addTask = async () => {
     if (newTask.trim() === "") return;

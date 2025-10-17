@@ -17,7 +17,8 @@ import "./Task.css";
 
 interface TaskItem {
   id: number;
-  text: string;
+  title: string;
+  description: string;
   completed: boolean;
   createdAt: Date;
 }
@@ -26,6 +27,7 @@ interface TaskItem {
 function Task() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [newTask, setNewTask] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<string>('');
   const [notificationStatus, setNotificationStatus] = useState<{
@@ -109,18 +111,6 @@ function Task() {
 
   // Cargar tareas desde IndexedDB al iniciar - CORREGIDO
   useEffect(() => {
-  const loadTasks = async () => {
-    try {
-      console.log('Cargando tareas desde IndexedDB...');
-      const stored = await getAllTasks();
-      console.log('Tareas cargadas:', stored);
-      setTasks(stored);
-    } catch (error) {
-      console.error('Error cargando tareas:', error);
-    }
-  };
-  loadTasks();
-}, []);
     const loadTasks = async () => {
       try {
         const stored = await getAllTasks();
@@ -134,6 +124,36 @@ function Task() {
 
   // Función principal para agregar tareas
   const handleAddTask = async () => {
+  if (newTask.trim() === "") return;
+  
+  try {
+    const task = {
+      title: newTask.trim(),
+      description: taskDescription.trim(),
+      completed: false,
+      createdAt: new Date(),
+    };
+    await addTask(task);
+    
+    // Registrar background sync si está offline
+    if (!navigator.onLine) {
+      await registerBackgroundSync();
+      setSyncStatus('⏳ Tarea guardada offline - Se sincronizará después');
+    } else {
+      setSyncStatus('✅ Tarea guardada y sincronizada');
+    }
+
+    const updated = await getAllTasks();
+    setTasks(updated);
+    setNewTask("");
+    setTaskDescription("");
+    setTimeout(() => setSyncStatus(''), 3000);
+    
+  } catch (error) {
+    console.error('Error agregando tarea:', error);
+    setSyncStatus('❌ Error guardando tarea');
+  }
+};
     if (newTask.trim() === "") return;
     
     try {
@@ -222,6 +242,28 @@ function Task() {
       </header>
 
       <div className="task-input-section">
+  <div className="input-group">
+    <input
+      type="text"
+      value={newTask}
+      onChange={(e) => setNewTask(e.target.value)}
+      onKeyPress={handleKeyPress}
+      placeholder="Título de la tarea..."
+      className="task-input"
+    />
+    <input
+      type="text"
+      value={taskDescription}
+      onChange={(e) => setTaskDescription(e.target.value)}
+      onKeyPress={handleKeyPress}
+      placeholder="Descripción (opcional)..."
+      className="task-input description-input"
+    />
+    <button onClick={handleAddTask} className="add-btn">
+      Agregar
+    </button>
+  </div>
+</div>
         <div className="input-group">
           <input
             type="text"
@@ -246,39 +288,88 @@ function Task() {
         )}
       </div>
 
-      <div className="tasks-list">
-        {tasks.length === 0 ? (
-          <div className="empty-state">
-            <p>No hay tareas aún</p>
-            <small>¡Agrega tu primera tarea arriba!</small>
+     <div className="tasks-list">
+  {tasks.length === 0 ? (
+    <div className="empty-state">
+      <p>No hay tareas aún</p>
+      <small>¡Agrega tu primera tarea arriba!</small>
+    </div>
+  ) : (
+    tasks.map((task) => (
+      <div
+        key={task.id}
+        className={`task-item ${task.completed ? "completed" : ""}`}
+      >
+        <div className="task-content">
+          <input
+            type="checkbox"
+            checked={task.completed}
+            onChange={() => toggleTask(task.id)}
+            className="task-checkbox"
+          />
+          <div className="task-text-container">
+            <span className="task-title">{task.title}</span>
+            {task.description && (
+              <small className="task-description">{task.description}</small>
+            )}
+            <small className="task-date">
+              {task.createdAt.toLocaleDateString()}
+            </small>
+          </div>
+        </div>
+        <button
+          onClick={() => deleteTask(task.id)}
+          className="delete-btn"
+          aria-label="Eliminar tarea"
+        >
+          🗑️
+        </button>
+      </div>
+    ))
+  )}
+</div>
+
+      <div className="notifications-section">
+        <h3>🔔 Notificaciones Push</h3>
+        
+        {!notificationStatus.supported ? (
+          <div className="notification-status unsupported">
+            <p>❌ Tu navegador no soporta notificaciones push</p>
+          </div>
+        ) : notificationStatus.permission === 'denied' ? (
+          <div className="notification-status denied">
+            <p>🔕 Permiso de notificaciones denegado</p>
+            <small>Para activarlas, ve a configuración de tu navegador</small>
+          </div>
+        ) : !notificationStatus.subscribed ? (
+          <div className="notification-status available">
+            <p>💡 Activa las notificaciones push</p>
+            <small>Recibe alertas cuando se sincronicen tus tareas</small>
+            <button 
+              onClick={handleEnableNotifications}
+              className="enable-notifications-btn"
+            >
+              Activar Notificaciones
+            </button>
           </div>
         ) : (
-          tasks.map((task) => (
-            <div
-              key={task.id}
-              className={`task-item ${task.completed ? "completed" : ""}`}
-            >
-              <div className="task-content">
-                <input
-                  type="checkbox"
-                  checked={task.completed}
-                  onChange={() => toggleTask(task.id)}
-                  className="task-checkbox"
-                />
-                <span className="task-text">{task.text}</span>
-                <small className="task-date">
-                  {task.createdAt.toLocaleDateString()}
-                </small>
-              </div>
-              <button
-                onClick={() => deleteTask(task.id)}
-                className="delete-btn"
-                aria-label="Eliminar tarea"
+          <div className="notification-status active">
+            <p>✅ Notificaciones push activadas</p>
+            <div className="notification-actions">
+              <button 
+                onClick={handleTestNotification}
+                className="test-notification-btn"
               >
-                🗑️
+                Probar Notificación
+              </button>
+              <button 
+                onClick={handleDisableNotifications}
+                className="disable-notifications-btn"
+              >
+                Desactivar
               </button>
             </div>
-          ))
+          </div>
         )}
       </div>
 

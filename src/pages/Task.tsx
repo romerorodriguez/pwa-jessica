@@ -38,7 +38,8 @@ function Task() {
     subscribed: false
   });
 
-    useEffect(() => {
+  // Verificar estado de notificaciones
+  useEffect(() => {
     const checkStatus = async () => {
       const status = await checkNotificationStatus();
       setNotificationStatus(status);
@@ -46,7 +47,7 @@ function Task() {
     checkStatus();
   }, []);
 
-    const handleEnableNotifications = async () => {
+  const handleEnableNotifications = async () => {
     const subscription = await subscribeToPushNotifications();
     if (subscription) {
       setNotificationStatus(prev => ({
@@ -68,10 +69,10 @@ function Task() {
       alert('🔕 Notificaciones push desactivadas');
     }
   };
+
   const handleTestNotification = async () => {
     await sendTestNotification();
   };
-
 
   // Detectar cambios de conexión
   useEffect(() => {
@@ -106,11 +107,15 @@ function Task() {
     };
   }, []);
 
-  // Cargar tareas desde IndexedDB al iniciar
+  // Cargar tareas desde IndexedDB al iniciar - CORREGIDO
   useEffect(() => {
     const loadTasks = async () => {
-      const stored = await getAllTasks();
-      setTasks(stored);
+      try {
+        const stored = await getAllTasks();
+        setTasks(stored);
+      } catch (error) {
+        console.error('Error cargando tareas:', error);
+      }
     };
     loadTasks();
   }, []);
@@ -118,43 +123,61 @@ function Task() {
   // Función principal para agregar tareas
   const handleAddTask = async () => {
     if (newTask.trim() === "") return;
-    const task = {
-      text: newTask.trim(),
-      completed: false,
-      createdAt: new Date(),
-    };
-    await addTask(task);
     
-    // Registrar background sync si está offline
-    if (!navigator.onLine) {
-      await registerBackgroundSync();
-      setSyncStatus('⏳ Tarea guardada offline - Se sincronizará después');
-    } else {
-      setSyncStatus('✅ Tarea guardada y sincronizada');
-    }
+    try {
+      const task = {
+        text: newTask.trim(),
+        completed: false,
+        createdAt: new Date(),
+      };
+      
+      await addTask(task);
+      
+      // Registrar background sync si está offline
+      if (!navigator.onLine) {
+        await registerBackgroundSync();
+        setSyncStatus('⏳ Tarea guardada offline - Se sincronizará después');
+      } else {
+        setSyncStatus('✅ Tarea guardada y sincronizada');
+      }
 
-    const updated = await getAllTasks();
-    setTasks(updated);
-    setNewTask("");
-    setTimeout(() => setSyncStatus(''), 3000);
+      const updated = await getAllTasks();
+      setTasks(updated);
+      setNewTask("");
+      setTimeout(() => setSyncStatus(''), 3000);
+      
+    } catch (error) {
+      console.error('Error agregando tarea:', error);
+      setSyncStatus('❌ Error guardando tarea');
+    }
   };
 
   const deleteTask = async (id: number) => {
-    await deleteTaskDB(id);
-    const updated = await getAllTasks();
-    setTasks(updated);
+    try {
+      await deleteTaskDB(id);
+      const updated = await getAllTasks();
+      setTasks(updated);
+    } catch (error) {
+      console.error('Error eliminando tarea:', error);
+    }
   };
 
   const toggleTask = async (id: number) => {
-    const updatedTasks = tasks.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
-    setTasks(updatedTasks);
-    const toggled = updatedTasks.find((t) => t.id === id);
-    if (toggled) await updateTaskDB({
-      ...toggled,
-      createdAt: toggled.createdAt.toISOString() // Convertir para IndexedDB
-    });
+    try {
+      const updatedTasks = tasks.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t
+      );
+      setTasks(updatedTasks);
+      const toggled = updatedTasks.find((t) => t.id === id);
+      if (toggled) {
+        await updateTaskDB({
+          ...toggled,
+          createdAt: toggled.createdAt // Ya es Date, no necesita conversión
+        });
+      }
+    } catch (error) {
+      console.error('Error actualizando tarea:', error);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -162,9 +185,13 @@ function Task() {
   };
 
   const clearCompleted = async () => {
-    await clearCompletedDB();
-    const updated = await getAllTasks();
-    setTasks(updated);
+    try {
+      await clearCompletedDB();
+      const updated = await getAllTasks();
+      setTasks(updated);
+    } catch (error) {
+      console.error('Error limpiando tareas completadas:', error);
+    }
   };
 
   return (

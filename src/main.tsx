@@ -20,5 +20,12 @@ if ('serviceWorker' in navigator) {
     .catch((error) => {
       console.log('Error SW:', error);
     });
+    navigator.serviceWorker.register('/service-worker.js')
+      .then((registration) => {
+        console.log('SW registrado correctamente:', registration);
+      })
+      .catch((error) => {
+        console.log('Error en SW:', error);
+      });
   });
 }

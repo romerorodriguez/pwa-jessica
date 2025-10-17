@@ -21,6 +21,15 @@ const DYNAMIC_ASSETS = [
 ];
 
 // Instalación - Cachear App Shell
+// service-worker.js (en raíz del proyecto)
+const CACHE_NAME = 'taskflow-v3';
+const ASSETS = [
+  '/',
+  '/index.html',
+  '/src/main.tsx',
+  '/src/App.tsx',
+  '/src/Task.tsx'
+];
 self.addEventListener('install', (event) => {
   console.log('Service Worker instalándose...');
   event.waitUntil(
@@ -28,6 +37,8 @@ self.addEventListener('install', (event) => {
       .then((cache) => {
         console.log('Cacheando App Shell...');
         return cache.addAll([...STATIC_ASSETS, ...DYNAMIC_ASSETS]);
+        console.log('Cacheando recursos...');
+        return cache.addAll(ASSETS);
       })
       .then(() => self.skipWaiting())
   );
@@ -345,7 +356,6 @@ self.addEventListener('notificationclick', (event) => {
           return client.focus();
         }
       }
-      
       // Si no hay ventana abierta, abrir una nueva
       if (self.clients.openWindow) {
         return self.clients.openWindow(urlToOpen);
@@ -389,3 +399,17 @@ function urlBase64ToUint8Array(base64String) {
   }
   return outputArray;
 }
+self.addEventListener('activate', (event) => {
+  console.log('Service Worker activado');
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Devuelve el cache o hace fetch
+        return response || fetch(event.request);
+      })
+  );
+});

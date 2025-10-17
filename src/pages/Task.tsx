@@ -1,9 +1,19 @@
 import { useState, useEffect } from "react";
-import { openDB } from "idb";
+import { 
+  addTask, 
+  getAllTasks, 
+  deleteTaskDB, 
+  updateTaskDB, 
+  clearCompletedDB,
+  registerBackgroundSync
+} from "../utils/idb";
+import { 
+  subscribeToPushNotifications, 
+  unsubscribeFromPushNotifications,
+  sendTestNotification,
+  checkNotificationStatus 
+} from "../utils/pushNotifications";
 import "./Task.css";
-
-const DB_NAME = "taskflow-db";
-const STORE_NAME = "tasks";
 
 interface TaskItem {
   id: number;
@@ -12,64 +22,92 @@ interface TaskItem {
   createdAt: Date;
 }
 
-async function initDB() {
-  return openDB(DB_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
-      }
-    },
-  });
-}
-
-async function getAllTasks() {
-  const db = await initDB();
-  const tasks = await db.getAll(STORE_NAME);
-  return tasks.map((t: any) => ({ ...t, createdAt: new Date(t.createdAt) }));
-}
-
-async function addTaskDB(task: Omit<TaskItem, "id">) {
-  const db = await initDB();
-  await db.add(STORE_NAME, task);
-}
-
-async function deleteTaskDB(id: number) {
-  const db = await initDB();
-  await db.delete(STORE_NAME, id);
-}
-
-async function updateTaskDB(task: TaskItem) {
-  const db = await initDB();
-  await db.put(STORE_NAME, task);
-}
-
-async function clearCompletedDB() {
-  const db = await initDB();
-  const all = await db.getAll(STORE_NAME);
-  const completed = all.filter((t: any) => t.completed);
-  for (const t of completed) {
-    await db.delete(STORE_NAME, t.id);
-  }
-}
-
 // --- Componente principal ---
 function Task() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [newTask, setNewTask] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncStatus, setSyncStatus] = useState<string>('');
+  const [notificationStatus, setNotificationStatus] = useState<{
+    supported: boolean;
+    permission: NotificationPermission;
+    subscribed: boolean;
+  }>({
+    supported: false,
+    permission: 'default',
+    subscribed: false
+  });
+
+  // Verificar estado de notificaciones
+  useEffect(() => {
+    const checkStatus = async () => {
+      const status = await checkNotificationStatus();
+      setNotificationStatus(status);
+    };
+    checkStatus();
+  }, []);
+
+  const handleEnableNotifications = async () => {
+    const subscription = await subscribeToPushNotifications();
+    if (subscription) {
+      setNotificationStatus(prev => ({
+        ...prev,
+        permission: 'granted',
+        subscribed: true
+      }));
+      alert('✅ Notificaciones push activadas correctamente');
+    }
+  };
+
+  const handleDisableNotifications = async () => {
+    const success = await unsubscribeFromPushNotifications();
+    if (success) {
+      setNotificationStatus(prev => ({
+        ...prev,
+        subscribed: false
+      }));
+      alert('🔕 Notificaciones push desactivadas');
+    }
+  };
+
+  const handleTestNotification = async () => {
+    await sendTestNotification();
+  };
 
   // Detectar cambios de conexión
   useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    const updateOnlineStatus = () => {
+      const online = navigator.onLine;
+      setIsOnline(online);
+      if (online) {
+        setSyncStatus('🔄 Sincronizando...');
+        // Cuando vuelve la conexión, forzar sync
+        setTimeout(() => setSyncStatus('✅ Sincronizado'), 2000);
+      } else {
+        setSyncStatus('⏳ Pendiente de sincronización');
+      }
+    };
+
     window.addEventListener("online", updateOnlineStatus);
     window.addEventListener("offline", updateOnlineStatus);
+
+    // Escuchar mensajes del Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SYNC_SUCCESS') {
+          setSyncStatus('✅ Tarea sincronizada: ' + event.data.task.text);
+          setTimeout(() => setSyncStatus(''), 3000);
+        }
+      });
+    }
+
     return () => {
       window.removeEventListener("online", updateOnlineStatus);
       window.removeEventListener("offline", updateOnlineStatus);
     };
   }, []);
 
-  // Cargar tareas desde IndexedDB al iniciar
+  // Cargar tareas desde IndexedDB al iniciar - CORREGIDO
   useEffect(() => {
   const loadTasks = async () => {
     try {
@@ -84,50 +122,88 @@ function Task() {
   loadTasks();
 }, []);
     const loadTasks = async () => {
-      const stored = await getAllTasks();
-      setTasks(stored);
+      try {
+        const stored = await getAllTasks();
+        setTasks(stored);
+      } catch (error) {
+        console.error('Error cargando tareas:', error);
+      }
     };
     loadTasks();
   }, []);
 
-  const addTask = async () => {
+  // Función principal para agregar tareas
+  const handleAddTask = async () => {
     if (newTask.trim() === "") return;
+    
+    try {
+      const task = {
+        text: newTask.trim(),
+        completed: false,
+        createdAt: new Date(),
+      };
+      
+      await addTask(task);
+      
+      // Registrar background sync si está offline
+      if (!navigator.onLine) {
+        await registerBackgroundSync();
+        setSyncStatus('⏳ Tarea guardada offline - Se sincronizará después');
+      } else {
+        setSyncStatus('✅ Tarea guardada y sincronizada');
+      }
 
-    const task = {
-      text: newTask.trim(),
-      completed: false,
-      createdAt: new Date(),
-    };
-
-    await addTaskDB(task);
-    const updated = await getAllTasks();
-    setTasks(updated);
-    setNewTask("");
+      const updated = await getAllTasks();
+      setTasks(updated);
+      setNewTask("");
+      setTimeout(() => setSyncStatus(''), 3000);
+      
+    } catch (error) {
+      console.error('Error agregando tarea:', error);
+      setSyncStatus('❌ Error guardando tarea');
+    }
   };
 
   const deleteTask = async (id: number) => {
-    await deleteTaskDB(id);
-    const updated = await getAllTasks();
-    setTasks(updated);
+    try {
+      await deleteTaskDB(id);
+      const updated = await getAllTasks();
+      setTasks(updated);
+    } catch (error) {
+      console.error('Error eliminando tarea:', error);
+    }
   };
 
   const toggleTask = async (id: number) => {
-    const updatedTasks = tasks.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
-    setTasks(updatedTasks);
-    const toggled = updatedTasks.find((t) => t.id === id);
-    if (toggled) await updateTaskDB(toggled);
+    try {
+      const updatedTasks = tasks.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t
+      );
+      setTasks(updatedTasks);
+      const toggled = updatedTasks.find((t) => t.id === id);
+      if (toggled) {
+        await updateTaskDB({
+          ...toggled,
+          createdAt: toggled.createdAt // Ya es Date, no necesita conversión
+        });
+      }
+    } catch (error) {
+      console.error('Error actualizando tarea:', error);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") addTask();
+    if (e.key === "Enter") handleAddTask();
   };
 
   const clearCompleted = async () => {
-    await clearCompletedDB();
-    const updated = await getAllTasks();
-    setTasks(updated);
+    try {
+      await clearCompletedDB();
+      const updated = await getAllTasks();
+      setTasks(updated);
+    } catch (error) {
+      console.error('Error limpiando tareas completadas:', error);
+    }
   };
 
   return (
@@ -138,6 +214,11 @@ function Task() {
         <p className={`status ${isOnline ? "online" : "offline"}`}>
           {isOnline ? "🟢 Conectado" : "🔴 Sin conexión"}
         </p>
+        {syncStatus && (
+          <p className="sync-status">
+            {syncStatus}
+          </p>
+        )}
       </header>
 
       <div className="task-input-section">
@@ -150,7 +231,7 @@ function Task() {
             placeholder="Escribe una nueva tarea..."
             className="task-input"
           />
-          <button onClick={addTask} className="add-btn">
+          <button onClick={handleAddTask} className="add-btn">
             Agregar
           </button>
         </div>
@@ -198,6 +279,50 @@ function Task() {
               </button>
             </div>
           ))
+        )}
+      </div>
+
+      <div className="notifications-section">
+        <h3>🔔 Notificaciones Push</h3>
+        
+        {!notificationStatus.supported ? (
+          <div className="notification-status unsupported">
+            <p>❌ Tu navegador no soporta notificaciones push</p>
+          </div>
+        ) : notificationStatus.permission === 'denied' ? (
+          <div className="notification-status denied">
+            <p>🔕 Permiso de notificaciones denegado</p>
+            <small>Para activarlas, ve a configuración de tu navegador</small>
+          </div>
+        ) : !notificationStatus.subscribed ? (
+          <div className="notification-status available">
+            <p>💡 Activa las notificaciones push</p>
+            <small>Recibe alertas cuando se sincronicen tus tareas</small>
+            <button 
+              onClick={handleEnableNotifications}
+              className="enable-notifications-btn"
+            >
+              Activar Notificaciones
+            </button>
+          </div>
+        ) : (
+          <div className="notification-status active">
+            <p>✅ Notificaciones push activadas</p>
+            <div className="notification-actions">
+              <button 
+                onClick={handleTestNotification}
+                className="test-notification-btn"
+              >
+                Probar Notificación
+              </button>
+              <button 
+                onClick={handleDisableNotifications}
+                className="disable-notifications-btn"
+              >
+                Desactivar
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

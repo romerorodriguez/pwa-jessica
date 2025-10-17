@@ -1,19 +1,219 @@
-<!-- <!DOCTYPE html>
-<html>
+<!-- public/offline.html -->
+<!DOCTYPE html>
+<html lang="es">
 <head>
-  <title>TaskFlow - Sin conexión</title>
-  <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      text-align: center; 
-      padding: 50px;
-      background: #f0fdf4;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow - Sin Conexión</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e88e5, #1565c0);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .offline-container {
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .offline-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .features {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 25px 0;
+        }
+
+        .features h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .features ul {
+            list-style: none;
+        }
+
+        .features li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4caf50;
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #1e88e5;
+        }
+
+        .btn-primary:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .connection-status {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 480px) {
+            .offline-container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <h1>🔌 Estás sin conexión</h1>
-  <p>Pero puedes seguir viendo y agregando tareas</p>
-  <button onclick="window.location.reload()">Reintentar</button>
+    <div class="offline-container">
+        <div class="offline-icon">📶</div>
+        
+        <h1>Estás sin conexión</h1>
+        
+        <p>No te preocupes, TaskFlow funciona perfectamente sin internet. Tus tareas están seguras y se sincronizarán automáticamente cuando recuperes la conexión.</p>
+        
+        <div class="features">
+            <h3>✅ Puedes seguir usando:</h3>
+            <ul>
+                <li>Crear nuevas tareas</li>
+                <li>Marcar tareas como completadas</li>
+                <li>Editar y eliminar tareas</li>
+                <li>Ver todas tus tareas guardadas</li>
+            </ul>
+        </div>
+
+        <div class="buttons">
+            <button class="btn btn-primary" onclick="location.reload()">
+                🔄 Reintentar Conexión
+            </button>
+            <button class="btn btn-secondary" onclick="history.back()">
+                ← Volver Atrás
+            </button>
+        </div>
+
+        <div class="connection-status">
+            <strong>Estado:</strong> 
+            <span id="status-text">Sin conexión a internet</span>
+        </div>
+    </div>
+
+    <script>
+        // Detectar cuando vuelve la conexión
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('status-text');
+            if (navigator.onLine) {
+                statusElement.textContent = '¡Conexión restaurada! Recargando...';
+                statusElement.style.color = '#4caf50';
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                statusElement.textContent = 'Sin conexión a internet';
+                statusElement.style.color = '#ff6b6b';
+            }
+        }
+
+        // Event listeners para cambios de conexión
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+
+        // Verificar estado inicial
+        updateConnectionStatus();
+
+        // Intentar reconectar automáticamente cada 10 segundos
+        setInterval(() => {
+            if (navigator.onLine) {
+                location.reload();
+            }
+        }, 10000);
+    </script>
 </body>
-</html> -->
+</html>

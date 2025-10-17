@@ -1,0 +1,55 @@
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Push Notifications - TaskFlow</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .step { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+        }
+        code { 
+            background: #eee; 
+            padding: 2px 5px; 
+            border-radius: 3px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>🔔 Test de Notificaciones Push - TaskFlow</h1>
+    
+    <div class="step">
+        <h3>Paso 1: Obtener suscripción</h3>
+        <p>Ve a TaskFlow y activa las notificaciones push.</p>
+        <p>Luego copia tu suscripción del localStorage:</p>
+        <button onclick="copySubscription()">Copiar Suscripción</button>
+        <textarea id="subscription" rows="6" cols="80" placeholder="La suscripción aparecerá aquí..."></textarea>
+    </div>
+
+    <div class="step">
+        <h3>Paso 2: Probar con web-push-codelab</h3>
+        <p>Ve a: <a href="https://web-push-codelab.glitch.me/" target="_blank">https://web-push-codelab.glitch.me/</a></p>
+        <p>Pega tu suscripción y envía una notificación de prueba.</p>
+    </div>
+
+    <script>
+        function copySubscription() {
+            const subscription = localStorage.getItem('push-subscription');
+            if (subscription) {
+                document.getElementById('subscription').value = subscription;
+                alert('Suscripción copiada. Ahora pégala en web-push-codelab.glitch.me');
+            } else {
+                alert('No se encontró suscripción. Primero activa las notificaciones en TaskFlow.');
+            }
+        }
+    </script>
+</body>
+</html>

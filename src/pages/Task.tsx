@@ -111,6 +111,18 @@ function Task() {
 
   // Cargar tareas desde IndexedDB al iniciar - CORREGIDO
   useEffect(() => {
+  const loadTasks = async () => {
+    try {
+      console.log('Cargando tareas desde IndexedDB...');
+      const stored = await getAllTasks();
+      console.log('Tareas cargadas:', stored);
+      setTasks(stored);
+    } catch (error) {
+      console.error('Error cargando tareas:', error);
+    }
+  };
+  loadTasks();
+}, []);
     const loadTasks = async () => {
       try {
         const stored = await getAllTasks();
